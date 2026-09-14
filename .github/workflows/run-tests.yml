@@ -1,4 +1,4 @@
-name: Test Modules
+name: Test BluePanel Node
 
 on:
   pull_request:
@@ -6,8 +6,10 @@ on:
       - "**"
   push:
     branches:
+      - "main"
       - "dev"
       - "wg"
+  workflow_dispatch:
 
 jobs:
   test:
@@ -31,10 +33,10 @@ jobs:
       - name: Install xray-core
         run: make install_xray
 
-      - name: install wg
+      - name: Install WireGuard tools
         run: make install_wg
 
-      - name: Create certificate
+      - name: Create certificates
         run: |
           mkdir -p certs
           make generate_server_cert
@@ -43,5 +45,5 @@ jobs:
       - name: Run regular test suite
         run: TEST_INTEGRATION=true go test ./... -v -p 1
 
-      - name: Run wireguard integration tests
+      - name: Run WireGuard integration tests
         run: sudo -E make test-integration-wireguard
