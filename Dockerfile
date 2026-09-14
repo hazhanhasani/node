@@ -16,7 +16,8 @@ RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} make install_xray
 
 FROM alpine:latest
 
-LABEL org.opencontainers.image.source="https://github.com/PasarGuard/node"
+LABEL org.opencontainers.image.source="https://github.com/hazhanhasani/node"
+LABEL org.opencontainers.image.title="BluePanel Node"
 
 RUN apk update && apk add --no-cache wireguard-tools nftables iproute2 procps
 
