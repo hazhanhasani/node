@@ -1,49 +1,39 @@
-# PasarGuard-Node
-<p align="center">
-    <a href="#">
-        <img src="https://img.shields.io/github/actions/workflow/status/PasarGuard/node/docker-build.yml?style=flat-square" />
-    </a>
-    <a href="https://hub.docker.com/r/pasarguard/node" target="_blank">
-        <img src="https://img.shields.io/docker/pulls/pasarguard/node?style=flat-square&logo=docker" />
-    </a>
-    <a href="#">
-        <img src="https://img.shields.io/github/license/PasarGuard/node?style=flat-square" />
-    </a>
-    <a href="#">
-        <img src="https://img.shields.io/github/stars/PasarGuard/node?style=social" />
-    </a>
-</p>
+# BluePanel Node
 
-# Documentation
-You can find a full guide in docs https://docs.pasarguard.org/en/node/
+BluePanel Node is the remote execution layer for BluePanel. It runs Xray/WireGuard backends and communicates with the BluePanel panel over the supported node protocol.
 
-# One-Click Installation (Recommended)
-The easiest way to install PasarGuard Node is using our automated installation script:
+This repository is the canonical source for BluePanel Node changes and releases:
 
-```bash
-sudo bash -c "$(curl -sL https://github.com/PasarGuard/scripts/raw/main/pg-node.sh)" @ install
+```text
+https://github.com/hazhanhasani/node
 ```
 
-# Donation
-You can help PasarGuard team with your donations, [Click Here](https://donate.pasarguard.org/)
+## Local Docker deployment
 
-# Contributors
+```bash
+git clone https://github.com/hazhanhasani/node.git
+cd node
+docker compose up -d --build
+```
 
-We ❤️‍🔥 contributors! If you'd like to contribute, please check out our [Contributing Guidelines](CONTRIBUTING.md) and feel free to submit a pull request or open an issue. We also welcome you to join our [Telegram](https://t.me/Pasar_Guard) group for either support or contributing guidance.
+The default service port is `62050` using gRPC.
 
-Check [open issues](https://github.com/PasarGuard/node/issues) to help the progress of this project.
+Persistent node data is stored under:
 
-## Stargazers over time
-[![Stargazers over time](https://starchart.cc/PasarGuard/node.svg?variant=adaptive)](https://starchart.cc/PasarGuard/node)
-                    
-<p align="center">
-Thanks to the all contributors who have helped improve PasarGuard Node:
-</p>
-<p align="center">
-<a href="https://github.com/PasarGuard/node/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=PasarGuard/node" />
-</a>
-</p>
-<p align="center">
-  Made with <a rel="noopener noreferrer" target="_blank" href="https://contrib.rocks">contrib.rocks</a>
-</p>
+```text
+/var/lib/bluepanel-node
+```
+
+## BluePanel integration
+
+The main panel repository is:
+
+```text
+https://github.com/hazhanhasani/panel
+```
+
+BluePanel-specific Tor multi-exit and Xray egress functionality will be developed in this node layer.
+
+## License
+
+This project keeps the original open-source license and all legally required notices. Product branding, release feeds and deployment paths are maintained independently for BluePanel.
