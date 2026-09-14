@@ -44,16 +44,15 @@ jobs:
       - name: Checkout codebase
         uses: actions/checkout@v7
 
-      - name: Show workflow information
+      - name: Determine asset name
         run: |
-          _GOARM="${GOARM:-""}"
+          _GOARM="${GOARM:-}"
           if [ -n "$_GOARM" ]; then
             _NAME="${GOOS}-${GOARCH}-${_GOARM}"
           else
             _NAME="${GOOS}-${GOARCH}"
           fi
           echo "ASSET_NAME=$_NAME" >> "$GITHUB_ENV"
-          echo "BINARY_NAME=bluepanel-node-${_NAME}" >> "$GITHUB_ENV"
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -66,9 +65,8 @@ jobs:
 
       - name: Build binary and zip
         run: |
-          make
-          find . -maxdepth 1 -type f -perm -111 ! -name "*.sh" ! -name "bluepanel-node-*" -exec mv {} "./bluepanel-node-${{ env.ASSET_NAME }}" \; -quit
-          zip -9 "./bluepanel-node-${{ env.ASSET_NAME }}.zip" "./bluepanel-node-${{ env.ASSET_NAME }}" README.md LICENSE
+          make NAME="bluepanel-node-${ASSET_NAME}" build
+          zip -9 "bluepanel-node-${ASSET_NAME}.zip" "bluepanel-node-${ASSET_NAME}" README.md LICENSE
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
