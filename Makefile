@@ -1,4 +1,4 @@
-NAME = pasarguard-node-$(GOOS)-$(GOARCH)
+NAME = bluepanel-node-$(GOOS)-$(GOARCH)
 
 LDFLAGS = -s -w -buildid=
 PARAMS = -trimpath -ldflags "$(LDFLAGS)" -v
@@ -6,7 +6,7 @@ MAIN = ./cmd/node
 PREFIX ?= $(shell go env GOPATH)
 XRAY_OS ?=
 XRAY_ARCH ?=
-# Map GOARCH to installer arch flag (pure make vars to avoid shell leakage)
+# Map GOARCH to official Xray release architecture names.
 XRAY_ARCH_MAP_amd64   = 64
 XRAY_ARCH_MAP_386     = 32
 XRAY_ARCH_MAP_arm64   = arm64-v8a
@@ -92,27 +92,23 @@ ifeq ($(UNAME_S),Linux)
 	@echo "Detected OS: Linux"
 	@echo "Distribution: $(DISTRO)"
 
-	# Debian/Ubuntu
 	if [ "$(DISTRO)" = "debian" ] || [ "$(DISTRO)" = "ubuntu" ]; then \
 		sudo apt-get update && \
-		sudo apt-get install -y curl bash; \
+		sudo apt-get install -y curl bash unzip; \
 	fi
 
-	# Alpine Linux
 	if [ "$(DISTRO)" = "alpine" ]; then \
 		apk update && \
-		apk add --no-cache curl bash; \
+		apk add --no-cache curl bash unzip; \
 	fi
 
-	# CentOS/RHEL/Fedora
 	if [ "$(DISTRO)" = "centos" ] || [ "$(DISTRO)" = "rhel" ] || [ "$(DISTRO)" = "fedora" ]; then \
 		sudo yum update -y && \
-		sudo yum install -y curl bash; \
+		sudo yum install -y curl bash unzip; \
 	fi
 
-	# Arch Linux
 	if [ "$(DISTRO)" = "arch" ]; then \
-		sudo pacman -Sy --noconfirm curl bash; \
+		sudo pacman -Sy --noconfirm curl bash unzip; \
 	fi
 else
 	@echo "Unsupported operating system: $(UNAME_S)"
@@ -121,15 +117,14 @@ endif
 
 install_xray: update_os
 ifeq ($(UNAME_S),Linux)
-	# Debian/Ubuntu, CentOS, Fedora, Arch → Use sudo
+	chmod +x ./scripts/install_xray.sh
 	if [ "$(DISTRO)" = "debian" ] || [ "$(DISTRO)" = "ubuntu" ] || \
 	   [ "$(DISTRO)" = "centos" ] || [ "$(DISTRO)" = "rhel" ] || [ "$(DISTRO)" = "fedora" ] || \
 	   [ "$(DISTRO)" = "arch" ]; then \
-		curl -L https://github.com/PasarGuard/scripts/raw/main/install_core.sh | sudo bash -s -- $(XRAY_INSTALL_ARGS); \
+		sudo ./scripts/install_xray.sh $(XRAY_INSTALL_ARGS); \
 	else \
-		curl -L https://github.com/PasarGuard/scripts/raw/main/install_core.sh | bash -s -- $(XRAY_INSTALL_ARGS); \
+		./scripts/install_xray.sh $(XRAY_INSTALL_ARGS); \
 	fi
-
 else
 	@echo "Unsupported operating system: $(UNAME_S)"
 	@exit 1
