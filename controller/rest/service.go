@@ -64,6 +64,27 @@ func (s *Service) setRouter() {
 			routingGroup.Put("/balancer/override", s.OverrideBalancerTarget)
 			routingGroup.Post("/test", s.TestRoute)
 		})
+
+		// Tor Multi-Exit lifecycle API. These are authenticated Node-internal
+		// endpoints used by the official BluePanel bridge; SOCKS/Control listeners
+		// themselves are never exposed here or on a public interface.
+		private.Route("/tor", func(torGroup chi.Router) {
+			torGroup.Get("/locations", s.ListTorLocations)
+			torGroup.Post("/locations", s.CreateOrUpdateTorLocation)
+			torGroup.Post("/reconcile", s.ForceReconcileTor)
+			torGroup.Route("/locations/{id}", func(location chi.Router) {
+				location.Get("/", s.GetTorLocation)
+				location.Put("/", s.CreateOrUpdateTorLocation)
+				location.Delete("/", s.DeleteTorLocation)
+				location.Post("/enable", s.EnableTorLocation)
+				location.Post("/disable", s.DisableTorLocation)
+				location.Post("/restart", s.RestartTorLocation)
+				location.Post("/new-identity", s.NewTorIdentity)
+				location.Post("/health", s.GetTorHealth)
+				location.Post("/repair", s.RepairTorLocation)
+				location.Post("/test", s.TestTorLocation)
+			})
+		})
 	})
 
 	s.Router = router
