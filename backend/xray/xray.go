@@ -21,6 +21,11 @@ type Xray struct {
 	cancelFunc context.CancelFunc
 	mu         sync.RWMutex
 	syncMu     sync.Mutex
+	torMu      sync.RWMutex
+	// torInbounds maps a canonical BluePanel inbound tag to the Tor location
+	// inbound tags cloned from it. User credentials are expanded through this
+	// mapping at sync time, so all locations share one identity/quota/status.
+	torInbounds map[string]map[string]struct{}
 }
 
 func New(ctx context.Context, xrayConfig *Config, users []*common.User, apiPort, metricPort int, cfg *config.Config) (*Xray, error) {
@@ -42,9 +47,10 @@ func New(ctx context.Context, xrayConfig *Config, users []*common.User, apiPort,
 	xCtx, xCancel := context.WithCancel(context.Background())
 
 	xray := &Xray{
-		cancelFunc: xCancel,
-		cfg:        cfg,
-		metricPort: metricPort,
+		cancelFunc:  xCancel,
+		cfg:         cfg,
+		metricPort:  metricPort,
+		torInbounds: make(map[string]map[string]struct{}),
 	}
 
 	start := time.Now()
@@ -56,7 +62,6 @@ func New(ctx context.Context, xrayConfig *Config, users []*common.User, apiPort,
 	if len(users) > 0 {
 		log.Printf("syncing %d users on startup", len(users))
 		xrayConfig.syncUsers(users)
-		// Verify users were synced by counting clients in all inbounds
 		totalClients := 0
 		for _, inbound := range xrayConfig.InboundConfigs {
 			if !inbound.exclude && inbound.clients != nil {
@@ -95,8 +100,6 @@ func New(ctx context.Context, xrayConfig *Config, users []*common.User, apiPort,
 		return nil, err
 	}
 
-	// Wait a bit for Xray to fully initialize before starting health checks
-	// This prevents false positives during startup
 	go xray.checkXrayHealth(xCtx)
 
 	log.Println("xray started, Version:", xray.Version())
@@ -145,18 +148,13 @@ func (x *Xray) Shutdown() {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 
-	// Cancel context first to stop health checks and other goroutines
 	x.cancelFunc()
 
-	// Stop core (this now waits for process termination)
 	if x.core != nil {
 		x.core.Stop()
 	}
 
-	// Close API handler
 	if x.handler != nil {
 		x.handler.Close()
 	}
-
-	// Shutdown is now complete - all resources are cleaned up
 }
