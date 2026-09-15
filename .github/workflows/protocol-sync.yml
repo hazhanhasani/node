@@ -1,0 +1,61 @@
+name: Generate BluePanel Node Protocol Bindings
+
+on:
+  push:
+    branches:
+      - main
+      - feature/bluepanel-tor-multi-exit
+    paths:
+      - common/service.proto
+      - .github/workflows/protocol-sync.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.3'
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Install protobuf generators
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Generate bindings
+        run: make generate_grpc_code
+
+      - name: Format and compile generated contract
+        run: |
+          gofmt -w common/*.go
+          go test ./common
+
+      - name: Commit generated bindings
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if git diff --quiet -- common/service.pb.go common/service_grpc.pb.go; then
+            echo "Bindings already synchronized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add common/service.pb.go common/service_grpc.pb.go
+          git commit -m "chore: regenerate BluePanel protocol bindings"
+          git pull --rebase origin "$BRANCH"
+          git push origin "HEAD:$BRANCH"
