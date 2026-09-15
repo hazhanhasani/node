@@ -19,7 +19,10 @@ FROM alpine:latest
 LABEL org.opencontainers.image.source="https://github.com/hazhanhasani/node"
 LABEL org.opencontainers.image.title="BluePanel Node"
 
-RUN apk update && apk add --no-cache wireguard-tools nftables iproute2 procps
+# Tor runs as independent child processes owned by BluePanel Node. SOCKS and
+# Control listeners are configured on loopback only; host networking is used by
+# the existing deployment so Xray can route to the per-location listeners.
+RUN apk update && apk add --no-cache wireguard-tools nftables iproute2 procps tor ca-certificates
 
 WORKDIR /app
 COPY --from=builder /src/main /app/main
