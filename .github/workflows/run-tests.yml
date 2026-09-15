@@ -9,6 +9,7 @@ on:
       - "main"
       - "dev"
       - "wg"
+      - "feature/bluepanel-tor-multi-exit"
   workflow_dispatch:
 
 jobs:
@@ -32,6 +33,12 @@ jobs:
 
       - name: Install xray-core
         run: make install_xray
+
+      - name: Install Tor
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tor
+          tor --version
 
       - name: Install WireGuard tools
         run: make install_wg
