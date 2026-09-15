@@ -159,10 +159,13 @@ func (x *Xray) expandTorUsers(users []*common.User) []*common.User {
 	return out
 }
 
-// ApplyTorLocation merges only the location-owned inbound/outbound/rule into a
-// cloned config. It reuses the current base inbound protocol, credentials,
-// TLS/REALITY and transport settings; only tag/port and egress routing change.
+// ApplyTorLocation serializes with user sync/config restart operations so a
+// location cannot be merged from a stale config while user membership is being
+// changed. Only location-owned config is merged; the rest of Xray stays intact.
 func (x *Xray) ApplyTorLocation(location tormgr.XrayLocation) error {
+	x.syncMu.Lock()
+	defer x.syncMu.Unlock()
+
 	if strings.TrimSpace(location.BaseInboundTag) == "" {
 		return errors.New("Tor base inbound tag is required")
 	}
@@ -229,6 +232,9 @@ func (x *Xray) ApplyTorLocation(location tormgr.XrayLocation) error {
 }
 
 func (x *Xray) RemoveTorLocation(location tormgr.XrayLocation) error {
+	x.syncMu.Lock()
+	defer x.syncMu.Unlock()
+
 	candidate, err := x.config.Clone()
 	if err != nil {
 		return err
