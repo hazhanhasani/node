@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/pasarguard/node/backend"
+	tormgr "github.com/pasarguard/node/backend/tor"
 	"github.com/pasarguard/node/backend/wireguard"
 	"github.com/pasarguard/node/backend/xray"
 	"github.com/pasarguard/node/common"
@@ -18,7 +19,7 @@ import (
 	"github.com/pasarguard/node/pkg/sysstats"
 )
 
-const NodeVersion = "0.5.4"
+const NodeVersion = "0.6.0"
 
 type Service interface {
 	Disconnect()
@@ -34,22 +35,64 @@ type Controller struct {
 	cancelFunc  context.CancelFunc
 	mu          sync.RWMutex
 	controlMu   sync.Mutex
+	torManager  *tormgr.Manager
+	torInitErr  error
+}
+
+func torManagerConfig(cfg *config.Config) tormgr.ManagerConfig {
+	return tormgr.ManagerConfig{
+		ExecutablePath:      cfg.TorExecutablePath,
+		DataRoot:            cfg.TorDataRoot,
+		XrayPorts:           tormgr.PortRange{Start: cfg.TorXrayPortStart, End: cfg.TorXrayPortEnd},
+		SocksPorts:          tormgr.PortRange{Start: cfg.TorSocksPortStart, End: cfg.TorSocksPortEnd},
+		ControlPorts:        tormgr.PortRange{Start: cfg.TorControlPortStart, End: cfg.TorControlPortEnd},
+		HealthCheckInterval: time.Duration(cfg.TorHealthCheckIntervalSec) * time.Second,
+		StartupTimeout:      time.Duration(cfg.TorStartupTimeoutSec) * time.Second,
+		OperationTimeout:    time.Duration(cfg.TorOperationTimeoutSec) * time.Second,
+		NewIdentityWait:     time.Duration(cfg.TorNewIdentityWaitSec) * time.Second,
+		MaxRestartAttempts:  cfg.TorMaxRestartAttempts,
+		StartupConcurrency:  cfg.TorStartupConcurrency,
+		CountryVerification: cfg.TorCountryVerification,
+		AutoRepair:          cfg.TorAutoRepair,
+	}
 }
 
 func New(cfg *config.Config) *Controller {
 	_, cancel := context.WithCancel(context.Background())
-	return &Controller{
+	controller := &Controller{
 		cfg:        cfg,
 		apiPort:    netutil.FindFreePort(),
 		metricPort: netutil.FindFreePort(),
 		cancelFunc: cancel,
 	}
+	if cfg.TorMultiExitEnabled {
+		controller.torManager, controller.torInitErr = tormgr.NewManager(torManagerConfig(cfg), nil)
+		if controller.torInitErr != nil {
+			log.Printf("Tor Multi-Exit initialization failed: %v", controller.torInitErr)
+		}
+	}
+	return controller
 }
 
 func (c *Controller) ApiKey() uuid.UUID {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.cfg.ApiKey
+}
+
+func (c *Controller) TorManager() (*tormgr.Manager, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if !c.cfg.TorMultiExitEnabled {
+		return nil, errors.New("Tor Multi-Exit is disabled on this node")
+	}
+	if c.torInitErr != nil {
+		return nil, c.torInitErr
+	}
+	if c.torManager == nil {
+		return nil, errors.New("Tor Multi-Exit manager is unavailable")
+	}
+	return c.torManager, nil
 }
 
 func (c *Controller) Connect(keepAlive uint64) {
@@ -73,12 +116,17 @@ func (c *Controller) Disconnect() {
 
 	c.mu.Lock()
 	backend := c.backend
+	torManager := c.torManager
 	c.mu.Unlock()
 
-	// Shutdown backend outside of lock to avoid deadlock
-	// Shutdown() will wait for process termination to complete
+	// Shutdown backend outside of lock to avoid deadlock.
 	if backend != nil {
 		backend.Shutdown()
+	}
+	// Tor instances remain alive and persistent across a transient Panel/backend
+	// disconnect. They are detached from Xray until the next Start/reconcile.
+	if torManager != nil {
+		torManager.DetachXray()
 	}
 
 	c.mu.Lock()
@@ -107,6 +155,10 @@ func (c *Controller) StartBackend(ctx context.Context, backend *common.Backend) 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.cfg.TorMultiExitEnabled && c.torInitErr != nil {
+		return c.torInitErr
+	}
+
 	switch backend.GetType() {
 	case common.BackendType_XRAY:
 		config, err := xray.NewConfig(backend.GetConfig(), backend.GetExcludeInbounds())
@@ -126,6 +178,16 @@ func (c *Controller) StartBackend(ctx context.Context, backend *common.Backend) 
 			return err
 		}
 		c.backend = newBackend
+		if c.torManager != nil {
+			c.torManager.AttachXray(newBackend)
+			go func() {
+				recoveryCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+				defer cancel()
+				if err := c.torManager.Recover(recoveryCtx); err != nil {
+					log.Printf("Tor Multi-Exit startup recovery completed with errors: %v", err)
+				}
+			}()
+		}
 
 	case common.BackendType_WIREGUARD:
 		config, err := wireguard.NewConfig(backend.GetConfig())
@@ -137,6 +199,9 @@ func (c *Controller) StartBackend(ctx context.Context, backend *common.Backend) 
 			return err
 		}
 		c.backend = newBackend
+		if c.torManager != nil {
+			c.torManager.DetachXray()
+		}
 	default:
 		return errors.New("invalid backend type")
 	}
@@ -226,7 +291,6 @@ func (c *Controller) SystemStats(ctx context.Context) *common.SystemStatsRespons
 		return response
 	}
 
-	// Backend uptime is owned by each backend implementation; controller only forwards it here.
 	backendStats, err := backendSnapshot.GetSysStats(ctx)
 	if err != nil {
 		log.Printf("Failed to get backend uptime for system stats: %v", err)
