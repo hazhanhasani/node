@@ -33,6 +33,27 @@ type Config struct {
 	WGNATDisable         bool
 	WGRouteTable         string
 	WGRouteOutInterface  string
+
+	// Tor Multi-Exit is feature-gated and disabled by default. Port ranges are
+	// Node-side safety/automatic-allocation bounds; the Panel also persists
+	// reservations transactionally.
+	TorMultiExitEnabled          bool
+	TorExecutablePath            string
+	TorDataRoot                  string
+	TorXrayPortStart             int
+	TorXrayPortEnd               int
+	TorSocksPortStart            int
+	TorSocksPortEnd              int
+	TorControlPortStart          int
+	TorControlPortEnd            int
+	TorHealthCheckIntervalSec    int
+	TorStartupTimeoutSec         int
+	TorOperationTimeoutSec       int
+	TorNewIdentityWaitSec        int
+	TorMaxRestartAttempts        int
+	TorStartupConcurrency        int
+	TorCountryVerification       bool
+	TorAutoRepair                bool
 }
 
 func Load() (*Config, error) {
@@ -61,6 +82,24 @@ func Load() (*Config, error) {
 		WGNATDisable:         GetEnvAsBool("PG_NODE_WG_NAT_DISABLE", false),
 		WGRouteTable:         GetEnv("PG_NODE_WG_ROUTE_TABLE", ""),
 		WGRouteOutInterface:  GetEnv("PG_NODE_WG_ROUTE_OUT_INTERFACE", ""),
+
+		TorMultiExitEnabled:       GetEnvAsBool("TOR_MULTI_EXIT_ENABLED", false),
+		TorExecutablePath:         GetEnv("TOR_EXECUTABLE_PATH", "/usr/bin/tor"),
+		TorDataRoot:               GetEnv("TOR_DATA_ROOT", "/var/lib/bluepanel-node/tor"),
+		TorXrayPortStart:          GetEnvAsInt("TOR_XRAY_PORT_START", 31000),
+		TorXrayPortEnd:            GetEnvAsInt("TOR_XRAY_PORT_END", 31999),
+		TorSocksPortStart:         GetEnvAsInt("TOR_SOCKS_PORT_START", 19000),
+		TorSocksPortEnd:           GetEnvAsInt("TOR_SOCKS_PORT_END", 19999),
+		TorControlPortStart:       GetEnvAsInt("TOR_CONTROL_PORT_START", 20000),
+		TorControlPortEnd:         GetEnvAsInt("TOR_CONTROL_PORT_END", 20999),
+		TorHealthCheckIntervalSec: GetEnvAsInt("TOR_HEALTH_CHECK_INTERVAL_SECONDS", 60),
+		TorStartupTimeoutSec:      GetEnvAsInt("TOR_STARTUP_TIMEOUT_SECONDS", 45),
+		TorOperationTimeoutSec:    GetEnvAsInt("TOR_OPERATION_TIMEOUT_SECONDS", 15),
+		TorNewIdentityWaitSec:     GetEnvAsInt("TOR_NEW_IDENTITY_WAIT_SECONDS", 5),
+		TorMaxRestartAttempts:     GetEnvAsInt("TOR_MAX_RESTART_ATTEMPTS", 5),
+		TorStartupConcurrency:     GetEnvAsInt("TOR_STARTUP_CONCURRENCY", 3),
+		TorCountryVerification:    GetEnvAsBool("TOR_COUNTRY_VERIFICATION", true),
+		TorAutoRepair:             GetEnvAsBool("TOR_AUTO_REPAIR", true),
 	}
 
 	if cfg.LogBufferSize <= 0 {
