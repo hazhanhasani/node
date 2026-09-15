@@ -208,6 +208,74 @@ message OverrideBalancerTargetRequest {
   string target = 2;
 }
 
+// Tor Multi-Exit. These messages are an internal typed Node contract; public
+// Panel API models may intentionally expose fewer operational fields.
+message TorLocationSpec {
+  string id = 1;
+  string slug = 2;
+  string display_name = 3;
+  string country_code = 4;
+  bool enabled = 5;
+  bool subscription_enabled = 6;
+  int32 sort_order = 7;
+  string base_inbound_tag = 8;
+  uint32 xray_inbound_port = 9; // 0 = automatic
+  string xray_inbound_tag = 10;
+  string xray_outbound_tag = 11;
+  string xray_rule_tag = 12;
+  uint32 tor_socks_port = 13;   // 0 = automatic
+  uint32 tor_control_port = 14; // 0 = automatic
+  bool auto_repair = 15;
+}
+
+message TorLocation {
+  string id = 1;
+  string slug = 2;
+  string display_name = 3;
+  string country_code = 4;
+  bool enabled = 5;
+  bool subscription_enabled = 6;
+  int32 sort_order = 7;
+  string base_inbound_tag = 8;
+  uint32 xray_inbound_port = 9;
+  string xray_inbound_tag = 10;
+  string xray_outbound_tag = 11;
+  string xray_rule_tag = 12;
+  uint32 tor_socks_port = 13;
+  uint32 tor_control_port = 14;
+  string tor_data_directory = 15;
+  string desired_country = 16;
+  string detected_country = 17;
+  string detected_exit_ip = 18;
+  string health_status = 19;
+  int64 latency_ms = 20;
+  string process_status = 21;
+  int64 last_checked_at = 22;
+  int64 last_healthy_at = 23;
+  string last_error = 24;
+  bool auto_repair = 25;
+  int32 restart_attempts = 26;
+  int64 created_at = 27;
+  int64 updated_at = 28;
+}
+
+message TorLocationsResponse {
+  repeated TorLocation locations = 1;
+}
+
+message TorLocationIDRequest {
+  string id = 1;
+}
+
+message DeleteTorLocationRequest {
+  string id = 1;
+  bool purge_data = 2;
+}
+
+message TorReconcileResponse {
+  repeated TorLocation locations = 1;
+}
+
 // Service for node management and connection
 service NodeService {
   rpc Start (Backend) returns (BaseInfoResponse) {}
@@ -235,4 +303,18 @@ service NodeService {
   rpc AddRoutingRule (AddRoutingRuleRequest) returns (Empty) {}
   rpc RemoveRoutingRule (RemoveRoutingRuleRequest) returns (Empty) {}
   rpc OverrideBalancerTarget (OverrideBalancerTargetRequest) returns (Empty) {}
+
+  rpc ListTorLocations (Empty) returns (TorLocationsResponse) {}
+  rpc GetTorLocation (TorLocationIDRequest) returns (TorLocation) {}
+  rpc CreateTorLocation (TorLocationSpec) returns (TorLocation) {}
+  rpc UpdateTorLocation (TorLocationSpec) returns (TorLocation) {}
+  rpc DeleteTorLocation (DeleteTorLocationRequest) returns (Empty) {}
+  rpc EnableTorLocation (TorLocationIDRequest) returns (TorLocation) {}
+  rpc DisableTorLocation (TorLocationIDRequest) returns (TorLocation) {}
+  rpc RestartTorLocation (TorLocationIDRequest) returns (TorLocation) {}
+  rpc NewTorIdentity (TorLocationIDRequest) returns (TorLocation) {}
+  rpc GetTorHealth (TorLocationIDRequest) returns (TorLocation) {}
+  rpc RepairTorLocation (TorLocationIDRequest) returns (TorLocation) {}
+  rpc TestTorLocation (TorLocationIDRequest) returns (TorLocation) {}
+  rpc ForceReconcileTor (Empty) returns (TorReconcileResponse) {}
 }
