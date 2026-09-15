@@ -1,0 +1,47 @@
+name: Tor Multi-Exit Feature Tests
+
+on:
+  push:
+    branches:
+      - "feature/bluepanel-tor-multi-exit"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: auto
+
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.3"
+          check-latest: true
+
+      - name: Get project dependencies
+        run: make deps
+
+      - name: Install Tor
+        run: sudo apt-get update && sudo apt-get install -y tor
+
+      - name: Install xray-core
+        run: make install_xray
+
+      - name: Install WireGuard tools
+        run: make install_wg
+
+      - name: Create certificates
+        run: |
+          mkdir -p certs
+          make generate_server_cert
+          make generate_client_cert
+
+      - name: Run complete Go test suite
+        run: TEST_INTEGRATION=true go test ./... -v -p 1
+
+      - name: Run WireGuard integration tests
+        run: sudo -E make test-integration-wireguard
